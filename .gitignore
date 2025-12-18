@@ -1,0 +1,17 @@
+# OS files
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
+
+# Gradle
+.gradle/
+build/
+
+# Logs
+*.log
+
+# Environment
+*.env
+
