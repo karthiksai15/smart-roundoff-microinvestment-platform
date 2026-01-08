@@ -15,17 +15,22 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        // ✅ Public auth endpoints
                         .requestMatchers("/auth/**").permitAll()
+
+                        // ✅ Allow health checks
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+
+                        // 🔐 Everything else secured
                         .anyRequest().authenticated()
                 );
 
         return http.build();
     }
 
-    // ✅ REQUIRED FOR AuthService
+    // ✅ Password encoder for AuthService
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 }
-

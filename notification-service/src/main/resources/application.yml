@@ -15,6 +15,18 @@ spring:
       ddl-auto: update
     show-sql: true
 
+  # REQUIRED FOR KAFKA CONSUMER
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.sromip.common.event
+        spring.json.value.default.type: com.sromip.common.event.PaymentEvent
+
 eureka:
   client:
     service-url:

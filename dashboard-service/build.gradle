@@ -1,12 +1,11 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '4.0.0'
-	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.springframework.boot' version '3.2.5'
+	id 'io.spring.dependency-management' version '1.1.4'
 }
 
-group = 'com.example'
-version = '0.0.1-SNAPSHOT'
-description = 'Demo project for Spring Boot'
+group = 'com.sromip.dashboard'
+version = '1.0.0'
 
 java {
 	toolchain {
@@ -14,22 +13,36 @@ java {
 	}
 }
 
-configurations {
-	compileOnly {
-		extendsFrom annotationProcessor
-	}
-}
-
 repositories {
 	mavenCentral()
 }
 
+/* 🔥 THIS WAS MISSING */
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.1"
+	}
+}
+
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+
+	// 🌐 Dashboard Web UI / APIs
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+
+	// 🔍 Eureka Client
+	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+
+	// 🔹 Thymeleaf (optional)
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
+	// 🔹 Lombok
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// 🔹 Actuator
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
 tasks.named('test') {

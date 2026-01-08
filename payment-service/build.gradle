@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.2.0'
+    id 'org.springframework.boot' version '3.2.5'
     id 'io.spring.dependency-management' version '1.1.4'
 }
 
@@ -8,7 +8,9 @@ group = 'com.sromip.payment'
 version = '1.0.0'
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
 }
 
 repositories {
@@ -17,25 +19,41 @@ repositories {
 
 dependencyManagement {
     imports {
-        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.0"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.1"
     }
 }
 
 dependencies {
 
-    // Web + REST
+    // 🔗 COMMON SHARED MODULE (🔥 MANDATORY)
+    implementation project(":common-libs")
+
+    // 🌐 Web + REST APIs
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
-    // JPA + Hibernate
+    // 🗄️ JPA + Hibernate
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-    // Eureka Client
+    // 🔍 Eureka Client
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
 
-    // PostgreSQL
+    // 📨 Kafka Producer
+    implementation 'org.springframework.kafka:spring-kafka'
+
+    // 🐘 PostgreSQL
     runtimeOnly 'org.postgresql:postgresql'
 
-    // Lombok
+    // 🔹 Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
+    // 🔹 Actuator
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // 🧪 Tests
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
 }

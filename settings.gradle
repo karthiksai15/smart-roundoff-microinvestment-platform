@@ -1,0 +1,14 @@
+rootProject.name = 'smart-roundoff-microinvestment-platform'
+
+include 'common-libs'
+include 'auth-service'
+include 'payment-service'
+include 'roundoff-engine'
+include 'investment-service'
+include 'fraud-service'
+include 'notification-service'
+include 'behavior-service'
+include 'dashboard-service'
+include 'api-gateway'
+include 'service-registry'
+
