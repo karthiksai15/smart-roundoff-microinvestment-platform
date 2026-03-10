@@ -1,0 +1,39 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: AUTH-SERVICE
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/auth_db
+    username: admin
+    password: admin123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  # ✅ Redis configuration
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 2000
+
+jwt:
+  secret: "22rCaGMiLhaXdVx8hlsCSVDCXzeY2jgTovMyR+Yz1Z66U5AId/RvdNSb1lIvzZu4BbylYOW0oItsKYf5lRMCMA=="
+  expiration: 86400000
+
+# ❗ Enable Eureka (IMPORTANT for Part 2 & 3)
+eureka:
+  client:
+    enabled: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

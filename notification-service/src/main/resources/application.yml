@@ -1,0 +1,46 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: notification-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/notification_db
+    username: admin
+    password: admin123
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    consumer:
+      group-id: notification-service-group
+      auto-offset-reset: earliest
+
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.sromip.common.event.PaymentEvent
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+eureka:
+  client:
+    enabled: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

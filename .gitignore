@@ -1,0 +1,28 @@
+# Build files
+build/
+.gradle/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Environment
+.env
+
+# Python / ML (important)
+ml-fraud-service/
+ml/
+models/
+datasets/
+venv/
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.onnx

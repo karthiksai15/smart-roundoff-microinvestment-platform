@@ -1,0 +1,43 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: investment-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/investment_db
+    username: admin
+    password: admin123
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  redis:
+    host: localhost
+    port: 6379
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: investment-service-group
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+eureka:
+  client:
+    enabled: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+
