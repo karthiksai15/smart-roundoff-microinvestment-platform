@@ -1,2 +1,1 @@
-# smart-roundoff-microinvestment-platform
-PAYMENT APP
+Distributed fintech microservices platform using Spring Boot, Kafka, Redis, PostgreSQL, and Docker.
