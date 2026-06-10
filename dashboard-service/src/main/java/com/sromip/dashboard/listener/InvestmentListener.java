@@ -1,5 +1,6 @@
 package com.sromip.dashboard.listener;
 
+
 import com.sromip.common.event.InvestmentCompletedEvent;
 import com.sromip.dashboard.service.DashboardUpdateService;
 
@@ -16,18 +17,22 @@ public class InvestmentListener {
 
     private final DashboardUpdateService service;
 
-    @KafkaListener(topics = "investment-completed-topic", groupId = "dashboard-group")
+    @KafkaListener(
+            topics = "investment-completed-topic",
+            groupId = "dashboard-group",
+            containerFactory = "kafkaListenerContainerFactory"
+    )
     public void consume(InvestmentCompletedEvent event) {
 
         try {
 
-            Long paymentId = event.getPaymentId();
-            String email = event.getUserEmail();
-            Double amount = event.getInvestedAmount();
+            log.info("Investment event received paymentId={}", event.getPaymentId());
 
-            service.updateInvestment(paymentId, email, amount);
-
-            log.info("Investment updated for paymentId {}", paymentId);
+            service.updateInvestment(
+                    event.getPaymentId(),
+                    event.getUserEmail(),
+                    event.getInvestedAmount()
+            );
 
         } catch (Exception e) {
 

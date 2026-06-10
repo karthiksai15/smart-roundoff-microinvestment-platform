@@ -6,152 +6,158 @@ ML_DIR="$BASE_DIR/ml-fraud-service"
 
 echo "======================================"
 echo " STARTING SROMIP PLATFORM "
-echo " EVENT-DRIVEN MICROSERVICES MODE "
 echo "======================================"
 
 # -------------------------------
-# Start Docker Desktop
+# Start Docker
 # -------------------------------
-echo "🚀 Starting Docker Desktop..."
+echo "🚀 Starting Docker..."
 open -a Docker
 
-echo "⏳ Waiting for Docker daemon..."
-until docker info >/dev/null 2>&1; do
-  sleep 3
-done
-
-echo "✅ Docker is running"
+echo "⏳ Waiting for Docker..."
+until docker info >/dev/null 2>&1; do sleep 3; done
+echo "✅ Docker ready"
 
 # -------------------------------
-# Start Infrastructure
+# Start Infra
 # -------------------------------
-echo "🐳 Starting infrastructure containers..."
+echo "🐳 Starting containers..."
 docker compose up -d
 
 # -------------------------------
-# Wait for PostgreSQL
+# Wait PostgreSQL
 # -------------------------------
-echo "⏳ Waiting for PostgreSQL..."
-
-until docker exec postgres pg_isready -U admin >/dev/null 2>&1; do
-  sleep 3
-done
-
+echo "⏳ Waiting PostgreSQL..."
+until docker exec postgres pg_isready -U admin >/dev/null 2>&1; do sleep 3; done
 echo "✅ PostgreSQL ready"
 
 # -------------------------------
-# Wait for Kafka
+# Wait Redis
 # -------------------------------
-echo "⏳ Waiting for Kafka..."
+echo "⏳ Waiting Redis..."
+until docker exec redis redis-cli ping | grep PONG >/dev/null; do sleep 2; done
+echo "✅ Redis ready"
+# -------------------------------
+# CLEAN OLD TEST DATA
+# -------------------------------
+echo "🧹 Cleaning old test data..."
 
-until docker exec kafka bash -c "nc -z localhost 9092" >/dev/null 2>&1; do
-  sleep 3
-done
+docker exec -i postgres psql -U admin -d auth_db -c \
+"TRUNCATE TABLE users RESTART IDENTITY CASCADE;" 2>/dev/null
 
-sleep 10
+docker exec -i postgres psql -U admin -d payment_intent_db -c \
+"TRUNCATE TABLE payment_intents,idempotency_keys RESTART IDENTITY CASCADE;" 2>/dev/null
+
+docker exec -i postgres psql -U admin -d fraud_db -c \
+"TRUNCATE TABLE fraud_checks,risk_scores RESTART IDENTITY CASCADE;" 2>/dev/null
+
+docker exec -i postgres psql -U admin -d payment_db -c \
+"TRUNCATE TABLE payments,idempotency_keys,user_preferences RESTART IDENTITY CASCADE;" 2>/dev/null
+
+docker exec -i postgres psql -U admin -d payment_db -c \
+"TRUNCATE TABLE dlq_events CASCADE;" 2>/dev/null
+
+docker exec -i postgres psql -U admin -d investment_db -c \
+"TRUNCATE TABLE investments RESTART IDENTITY CASCADE;" 2>/dev/null
+
+docker exec -i postgres psql -U admin -d notification_db -c \
+"TRUNCATE TABLE notifications RESTART IDENTITY CASCADE;" 2>/dev/null
+
+docker exec -i postgres psql -U admin -d dashboard_db -c \
+"TRUNCATE TABLE dashboard_transactions RESTART IDENTITY CASCADE;" 2>/dev/null
+
+docker exec -i redis redis-cli FLUSHALL >/dev/null 2>&1
+
+echo "✅ Test data cleaned"
+# -------------------------------
+# Wait Kafka (FIXED 🔥)
+# -------------------------------
+echo "⏳ Waiting Kafka..."
+until docker exec kafka bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list" >/dev/null 2>&1; do sleep 3; done
 echo "✅ Kafka ready"
 
-# -------------------------------
-# Show Existing Kafka Topics
-# -------------------------------
-echo "📜 Existing Kafka topics..."
-
-docker exec kafka /opt/kafka/bin/kafka-topics.sh \
---bootstrap-server localhost:9092 \
---list
+sleep 5
 
 # -------------------------------
-# Ensure Kafka Topics
+# Create Topics
 # -------------------------------
-echo "📨 Ensuring Kafka topics exist..."
+echo "📨 Creating topics..."
 
-docker exec kafka bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic payment-intent-topic --partitions 1 --replication-factor 1"
+create_topic() {
+  docker exec kafka bash -c "/opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 \
+  --create --if-not-exists \
+  --topic $1 \
+  --partitions 1 \
+  --replication-factor 1"
+}
 
-docker exec kafka bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic trust-decision-topic --partitions 1 --replication-factor 1"
+create_topic payment-topic
+create_topic otp-request-topic
+create_topic otp-verified-topic
+create_topic payment-decision-retry-topic
+create_topic investment-completed-topic
+create_topic notification-topic
+create_topic otp-generated-topic
 
-docker exec kafka bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic payment-topic --partitions 1 --replication-factor 1"
-
-docker exec kafka bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic investment-completed-topic --partitions 1 --replication-factor 1"
-
-docker exec kafka bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic notification-topic --partitions 1 --replication-factor 1"
-
-docker exec kafka bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic otp-request-topic --partitions 1 --replication-factor 1"
-
-docker exec kafka bash -c "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic otp-verified-topic --partitions 1 --replication-factor 1"
-
-echo "✅ Kafka topics ready"
+echo "✅ Topics ready"
 
 # -------------------------------
-# Start ML Fraud Model
+# Start ML Service
 # -------------------------------
-echo "🤖 Starting ML Fraud Service (8000)..."
+echo "🤖 Starting ML..."
 
 osascript -e "tell app \"Terminal\" to do script \"cd $ML_DIR && source venv/bin/activate && uvicorn app:app --host 0.0.0.0 --port 8000\""
 
-echo "⏳ Waiting for ML service..."
-
-until curl -s http://localhost:8000/docs >/dev/null; do
-  sleep 3
-done
-
-echo "✅ ML service ready"
+until curl -s http://localhost:8000/docs >/dev/null; do sleep 3; done
+echo "✅ ML ready"
 
 # -------------------------------
-# Start Eureka Service Registry
+# Start Eureka (FIXED 🔥)
 # -------------------------------
-echo "🧭 Starting Eureka Service Registry (8761)..."
-
+echo "🧭 Starting Eureka..."
 osascript -e "tell app \"Terminal\" to do script \"cd $ROOT_DIR && ./gradlew :service-registry:bootRun\""
 
-sleep 20
+echo "⏳ Waiting Eureka..."
+until curl -s http://localhost:8761 >/dev/null; do sleep 3; done
+echo "✅ Eureka ready"
 
 # -------------------------------
-# Start API Gateway
+# Start Services
 # -------------------------------
-echo "🌐 Starting API Gateway (9000)..."
+echo "🚀 Starting services..."
 
+SERVICES=(
+auth-service
+payment-intent-service
+fraud-service
+payment-service
+otp-service
+investment-service
+notification-service
+dashboard-service
+)
+
+for SERVICE in "${SERVICES[@]}"
+do
+  osascript -e "tell app \"Terminal\" to do script \"cd $ROOT_DIR && ./gradlew :$SERVICE:bootRun\""
+done
+
+echo "⏳ Waiting services..."
+sleep 25
+
+# -------------------------------
+# Start Gateway LAST
+# -------------------------------
+echo "🌐 Starting API Gateway..."
 osascript -e "tell app \"Terminal\" to do script \"cd $ROOT_DIR && ./gradlew :api-gateway:bootRun\""
 
-sleep 10
-
-# -------------------------------
-# Start All Microservices in Parallel
-# -------------------------------
-echo "🚀 Starting all microservices in parallel..."
-
-osascript -e "tell app \"Terminal\" to do script \"cd $ROOT_DIR && ./gradlew :auth-service:bootRun\""
-
-osascript -e "tell app \"Terminal\" to do script \"cd $ROOT_DIR && ./gradlew :payment-intent-service:bootRun\""
-
-osascript -e "tell app \"Terminal\" to do script \"cd $ROOT_DIR && ./gradlew :fraud-service:bootRun\""
-
-osascript -e "tell app \"Terminal\" to do script \"cd $ROOT_DIR && ./gradlew :payment-service:bootRun\""
-
-osascript -e "tell app \"Terminal\" to do script \"cd $ROOT_DIR && ./gradlew :otp-service:bootRun\""
-
-osascript -e "tell app \"Terminal\" to do script \"cd $ROOT_DIR && ./gradlew :investment-service:bootRun\""
-
-osascript -e "tell app \"Terminal\" to do script \"cd $ROOT_DIR && ./gradlew :notification-service:bootRun\""
-
-osascript -e "tell app \"Terminal\" to do script \"cd $ROOT_DIR && ./gradlew :dashboard-service:bootRun\""
-
 echo ""
 echo "======================================"
-echo " ALL SERVICES STARTED SUCCESSFULLY 🚀 "
+echo " ALL SERVICES STARTED 🚀 "
 echo "======================================"
-echo ""
 
-echo "Service Registry:"
-echo "http://localhost:8761"
-echo ""
-
-echo "API Gateway:"
-echo "http://localhost:9000"
-echo ""
-
-echo "ML Fraud API:"
-echo "http://localhost:8000/docs"
-echo ""
-
-echo "Dashboard:"
-echo "http://localhost:8095/dashboard/pipelines"
+echo "Service Registry: http://localhost:8761"
+echo "API Gateway: http://localhost:9000"
+echo "ML Fraud API: http://localhost:8000/docs"
+echo "Dashboard: http://localhost:8095/dashboard/pipelines"

@@ -8,7 +8,7 @@ import java.util.Optional;
 public interface DashboardTransactionRepository
         extends JpaRepository<DashboardTransaction, Long> {
 
-    Optional<DashboardTransaction> findByPaymentId(Long paymentId);
+    Optional<DashboardTransaction> findByPaymentId(String paymentId);
 
     Optional<DashboardTransaction> findTopByUserEmailOrderByPaymentIdDesc(String userEmail);
 

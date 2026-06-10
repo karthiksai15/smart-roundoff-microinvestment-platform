@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class OtpGeneratedEvent {
 
+    private String traceId;
     private String userEmail;
     private String otp;
 }

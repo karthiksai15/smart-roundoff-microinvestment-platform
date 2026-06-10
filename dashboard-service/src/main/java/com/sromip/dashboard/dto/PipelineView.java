@@ -2,13 +2,14 @@ package com.sromip.dashboard.dto;
 
 public class PipelineView {
 
-    private Long paymentId;
+    private String paymentId;
+
     private String payment;
     private String fraud;
     private String investment;
     private String notification;
 
-    public PipelineView(Long paymentId, String payment, String fraud,
+    public PipelineView(String paymentId, String payment, String fraud,
                         String investment, String notification) {
         this.paymentId = paymentId;
         this.payment = payment;
@@ -17,7 +18,7 @@ public class PipelineView {
         this.notification = notification;
     }
 
-    public Long getPaymentId() { return paymentId; }
+    public String getPaymentId() { return paymentId; }
     public String getPayment() { return payment; }
     public String getFraud() { return fraud; }
     public String getInvestment() { return investment; }

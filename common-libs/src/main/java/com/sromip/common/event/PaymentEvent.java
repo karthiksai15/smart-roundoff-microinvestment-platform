@@ -11,9 +11,11 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class PaymentEvent {
 
+    private String traceId;
+    private String paymentId;
+
     private PaymentEventType eventType;
 
-    private String transactionId;
     private String userEmail;
 
     private double amount;
@@ -21,4 +23,3 @@ public class PaymentEvent {
 
     private LocalDateTime eventTime;
 }
-

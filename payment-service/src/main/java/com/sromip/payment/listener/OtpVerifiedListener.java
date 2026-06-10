@@ -18,14 +18,15 @@ public class OtpVerifiedListener {
 
     @KafkaListener(
             topics = "otp-verified-topic",
-            groupId = "payment-service-group",
-            containerFactory = "kafkaListenerContainerFactory"
+            groupId = "payment-service-group"
     )
     public void handleOtpVerified(OtpVerifiedEvent event) {
 
-        log.info("🔐 OTP verified event received from Kafka");
-        log.info("User: {}", event.getUserEmail());
+        log.info("🔥 OTP VERIFIED RECEIVED paymentId={}", event.getPaymentId());
 
-        paymentService.resumeAfterOtp(event.getUserEmail());
+        paymentService.resumeAfterOtp(
+                event.getPaymentId(),
+                event.getTraceId()
+        );
     }
 }

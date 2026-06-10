@@ -1,15 +1,12 @@
 package com.sromip.fraud.service;
 
-import com.sromip.fraud.dto.FraudCheckRequest;
-import com.sromip.fraud.dto.FraudCheckResponse;
+import com.sromip.common.event.FraudCheckRequest;
+import com.sromip.common.event.FraudCheckResponse;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class FraudService {
 
@@ -17,7 +14,7 @@ public class FraudService {
 
         FraudCheckResponse res = new FraudCheckResponse();
 
-        double amount = req.getAmount();
+        double amount = req.getAmount();   // ✅ now correct
 
         log.info("🔍 Fraud check started for amount: {}", amount);
 
@@ -32,7 +29,6 @@ public class FraudService {
             res.setAllow(false);
             res.setRiskScore(riskScore);
             res.setReason("HIGH risk — blocked");
-
         }
 
         else if (amount > 100000) {
@@ -44,7 +40,6 @@ public class FraudService {
             res.setAllow(true);
             res.setRiskScore(riskScore);
             res.setReason("MEDIUM risk — OTP required");
-
         }
 
         else {

@@ -1,5 +1,7 @@
 package com.sromip.paymentintent.entity;
 
+import com.sromip.paymentintent.enums.PaymentIntentStatus;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,10 +21,17 @@ public class PaymentIntent {
     @GeneratedValue
     private UUID id;
 
+    @Column(name = "payment_id", unique = true, nullable = false)
+    private String paymentId;
+
     private String userEmail;
     private double requestedAmount;
     private String currency;
-    private String status;
+
+    // 🔥 STATE MACHINE FIELD
+    @Enumerated(EnumType.STRING)
+    private PaymentIntentStatus status;
+
     private LocalDateTime createdAt;
 
     private Double trustScore;

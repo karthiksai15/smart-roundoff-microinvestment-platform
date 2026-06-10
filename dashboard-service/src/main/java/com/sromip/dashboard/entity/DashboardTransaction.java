@@ -14,21 +14,16 @@ public class DashboardTransaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Unique pipeline identifier
-    private Long paymentId;
+    @Column(unique = true)
+    private String paymentId;
 
     private String userEmail;
 
     private String paymentStatus;
-
     private String fraudStatus;
-
     private Double mlRiskScore;
-
     private String investmentStatus;
-
     private Double investedAmount;
-
     private String notificationStatus;
 
     private LocalDateTime lastUpdated;

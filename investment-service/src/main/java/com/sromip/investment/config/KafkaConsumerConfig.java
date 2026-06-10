@@ -1,6 +1,6 @@
 package com.sromip.investment.config;
 
-import com.sromip.common.event.PaymentEvent;
+import com.sromip.common.event.InvestmentTriggerEvent;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -10,8 +10,8 @@ import org.springframework.context.annotation.Configuration;
 
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.core.ConsumerFactory;
 
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 
 import java.util.HashMap;
@@ -21,32 +21,38 @@ import java.util.Map;
 public class KafkaConsumerConfig {
 
     @Bean
-    public ConsumerFactory<String, PaymentEvent> consumerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, InvestmentTriggerEvent> kafkaListenerContainerFactory() {
 
-        JsonDeserializer<PaymentEvent> deserializer =
-                new JsonDeserializer<>(PaymentEvent.class);
+        ConcurrentKafkaListenerContainerFactory<String, InvestmentTriggerEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
 
-        deserializer.addTrustedPackages("com.sromip.common.event");
+        factory.setConsumerFactory(
+                new DefaultKafkaConsumerFactory<>(consumerConfigs())
+        );
+
+        factory.setMissingTopicsFatal(false);
+
+        return factory;
+    }
+
+    public Map<String, Object> consumerConfigs() {
 
         Map<String, Object> props = new HashMap<>();
 
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "investment-group");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializer);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
 
-        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), deserializer);
-    }
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
 
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, PaymentEvent>
-    kafkaListenerContainerFactory() {
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
 
-        ConcurrentKafkaListenerContainerFactory<String, PaymentEvent> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE,
+                "com.sromip.common.event.InvestmentTriggerEvent");
 
-        factory.setConsumerFactory(consumerFactory());
-
-        return factory;
+        return props;
     }
 }

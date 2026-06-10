@@ -11,18 +11,25 @@ public class OtpController {
 
     private final OtpService otpService;
 
-    @PostMapping("/generate")
-    public String generate(@RequestParam String userEmail) {
-        otpService.generateOtp(userEmail);
-        return "OTP sent";
+    @PostMapping("/verify")
+    public String verify(@RequestParam String otpSessionId,
+                         @RequestParam String otp,
+                         @RequestParam String userEmail,
+                         @RequestParam String traceId) {
+
+        boolean valid = otpService.verifyOtp(otpSessionId, otp, traceId, userEmail);
+
+        return valid ? "OTP verified successfully" : "Invalid OTP";
     }
 
-    @PostMapping("/verify")
-    public String verify(@RequestParam String userEmail,
-                         @RequestParam String otp) {
+    // ✅ FIX: RESEND USES SAME SESSION ID
+    @PostMapping("/resend")
+    public String resend(@RequestParam String otpSessionId,
+                         @RequestParam String userEmail,
+                         @RequestParam String traceId) {
 
-        boolean valid = otpService.verifyOtp(userEmail, otp);
+        otpService.resendOtp(otpSessionId, userEmail, traceId);
 
-        return valid ? "OTP verified" : "Invalid OTP";
+        return "OTP resent successfully";
     }
 }

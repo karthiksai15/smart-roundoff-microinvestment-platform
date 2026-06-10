@@ -9,7 +9,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class InvestmentCompletedEvent {
 
-    private Long paymentId;
+    private String traceId;
+
+    private String paymentId;
+
     private String userEmail;
     private Double investedAmount;
 }

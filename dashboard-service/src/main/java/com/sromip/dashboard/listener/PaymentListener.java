@@ -1,5 +1,6 @@
 package com.sromip.dashboard.listener;
 
+
 import com.sromip.common.event.PaymentEvent;
 import com.sromip.common.event.PaymentEventType;
 import com.sromip.dashboard.service.DashboardUpdateService;
@@ -17,26 +18,30 @@ public class PaymentListener {
 
     private final DashboardUpdateService service;
 
-    @KafkaListener(topics = "payment-topic", groupId = "dashboard-group")
+    @KafkaListener(
+            topics = "payment-topic",
+            groupId = "dashboard-group",
+            containerFactory = "kafkaListenerContainerFactory"
+    )
     public void handlePayment(PaymentEvent event) {
 
         try {
 
-            if (event.getEventType() != PaymentEventType.PAYMENT_COMPLETED) {
-                return;
-            }
-
-            Long paymentId = Long.valueOf(event.getTransactionId());
+            String paymentId = event.getPaymentId();
             String email = event.getUserEmail();
 
-            service.updatePayment(paymentId, email);
+            if (event.getEventType() == PaymentEventType.PAYMENT_COMPLETED) {
 
-            log.info("Payment updated for {}", paymentId);
+                service.updatePayment(paymentId, email, "COMPLETED", "APPROVED");
+
+            } else if (event.getEventType() == PaymentEventType.PAYMENT_FAILED) {
+
+                service.updatePayment(paymentId, email, "FAILED", "BLOCKED");
+
+            }
 
         } catch (Exception e){
-
             log.error("Payment listener failed", e);
-
         }
     }
 }

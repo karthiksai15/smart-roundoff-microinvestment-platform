@@ -11,19 +11,22 @@ public class FraudCheck {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // ✅ NEW GLOBAL BUSINESS ID
+    @Column(name = "payment_id", nullable = false)
+    private String paymentId;
+
     private String userEmail;
-
     private Double amount;
-
     private boolean suspicious;
-
     private String reason;
 
     private LocalDateTime checkedAt = LocalDateTime.now();
 
-    // getters and setters
+    // getters & setters
     public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+
+    public String getPaymentId() { return paymentId; }
+    public void setPaymentId(String paymentId) { this.paymentId = paymentId; }
 
     public String getUserEmail() { return userEmail; }
     public void setUserEmail(String userEmail) { this.userEmail = userEmail; }

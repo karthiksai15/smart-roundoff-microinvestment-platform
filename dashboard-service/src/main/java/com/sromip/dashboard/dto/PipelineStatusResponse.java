@@ -17,15 +17,31 @@ public class PipelineStatusResponse {
         this.notificationStatus = notificationStatus;
     }
 
-    public String getPayment() { return payment; }
-    public void setPayment(String payment) { this.payment = payment; }
+    public String getPayment() {
+        return payment;
+    }
+    public void setPayment(String payment) {
+        this.payment = payment;
+    }
 
-    public String getFraudStatus() { return fraudStatus; }
-    public void setFraudStatus(String fraudStatus) { this.fraudStatus = fraudStatus; }
+    public String getFraudStatus() {
+        return fraudStatus;
+    }
+    public void setFraudStatus(String fraudStatus) {
+        this.fraudStatus = fraudStatus;
+    }
 
-    public String getInvestmentStatus() { return investmentStatus; }
-    public void setInvestmentStatus(String investmentStatus) { this.investmentStatus = investmentStatus; }
+    public String getInvestmentStatus() {
+        return investmentStatus;
+    }
+    public void setInvestmentStatus(String investmentStatus) {
+        this.investmentStatus = investmentStatus;
+    }
 
-    public String getNotificationStatus() { return notificationStatus; }
-    public void setNotificationStatus(String notificationStatus) { this.notificationStatus = notificationStatus; }
+    public String getNotificationStatus() {
+        return notificationStatus;
+    }
+    public void setNotificationStatus(String notificationStatus) {
+        this.notificationStatus = notificationStatus;
+    }
 }

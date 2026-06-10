@@ -4,7 +4,9 @@ import com.sromip.notification.model.NotificationChannel;
 import com.sromip.notification.service.channel.EmailSender;
 import com.sromip.notification.service.channel.SmsSender;
 import com.sromip.notification.service.channel.PushSender;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 
 @Service
@@ -20,10 +22,14 @@ public class NotificationDispatcher {
             String user,
             String message
     ) {
+
         switch (channel) {
+
             case EMAIL -> emailSender.send(user, message);
-            case SMS   -> smsSender.send(user, message);
-            case PUSH  -> pushSender.send(user, message);
+            case SMS -> smsSender.send(user, message);
+            case PUSH -> pushSender.send(user, message);
+
         }
+
     }
 }

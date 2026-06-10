@@ -1,22 +1,23 @@
 package com.sromip.payment.service;
 
-import com.sromip.common.event.FraudDecisionEvent;
-import com.sromip.common.event.OtpRequestEvent;
-import com.sromip.common.event.PaymentEvent;
-import com.sromip.common.event.PaymentEventType;
-
-import com.sromip.payment.entity.Payment;
-import com.sromip.payment.entity.UserPreference;
+import com.sromip.common.event.*;
+import com.sromip.payment.entity.*;
 import com.sromip.payment.repository.PaymentRepository;
 import com.sromip.payment.repository.UserPreferenceRepository;
+
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.slf4j.MDC;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -25,172 +26,242 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final UserPreferenceRepository userPreferenceRepository;
+    private final IdempotencyService idempotencyService;
 
     private final KafkaTemplate<String, PaymentEvent> paymentKafkaTemplate;
+
+    @Qualifier("kafkaTemplate")
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     private static final String PAYMENT_TOPIC = "payment-topic";
     private static final String OTP_REQUEST_TOPIC = "otp-request-topic";
+    private static final String INVESTMENT_TRIGGER_TOPIC = "investment-trigger-topic";
 
     public void processDecision(FraudDecisionEvent event) {
 
-        log.info("📥 Fraud decision received for {}", event.getUserEmail());
+        String traceId = event.getTraceId();
+        MDC.put("traceId", traceId);
 
-        double riskScore = event.getRiskScore();
-        String riskLevel = determineRiskLevel(riskScore);
+        try {
 
-        if ("BLOCKED".equals(event.getStatus())) {
-            log.warn("❌ Blocked by Fraud Service");
-            return;
-        }
+            String paymentId = event.getPaymentId();
 
-        boolean otpRequired = false;
-        String finalStatus;
+            log.info("🔥 EVENT RECEIVED → paymentId={}, amount={}, status={}",
+                    paymentId, event.getAmount(), event.getStatus());
 
-        switch (riskLevel) {
+            // ✅ DUPLICATE DB CHECK (CRITICAL FIX)
+            Optional<Payment> existing = paymentRepository.findByPaymentId(paymentId);
+            if (existing.isPresent()) {
+                log.warn("⚠️ Duplicate payment ignored paymentId={}", paymentId);
+                return;
+            }
 
-            case "HIGH":
-                finalStatus = "BLOCKED";
-                break;
+            // ✅ IDEMPOTENCY CHECK
+            if (idempotencyService.isAlreadyProcessed(paymentId)) {
+                log.warn("⚠️ Idempotent duplicate ignored paymentId={}", paymentId);
+                return;
+            }
 
-            case "MEDIUM":
-                finalStatus = "OTP_REQUIRED";
-                otpRequired = true;
-                break;
+            if ("BLOCKED".equals(event.getStatus())) {
 
-            default:
-                finalStatus = "APPROVED";
-        }
+                Payment payment = new Payment();
+                payment.setPaymentId(paymentId);
+                payment.setUserEmail(event.getUserEmail());
+                payment.setStatus(PaymentStatus.FAILED);
+                payment.setRiskLevel("HIGH");
 
-        if ("BLOCKED".equals(finalStatus)) {
-            log.warn("❌ Payment blocked due to HIGH risk");
-            return;
-        }
+                paymentRepository.save(payment);
 
-        double originalAmount = event.getAmount();
-        double roundedAmount;
-        String roundingStrategy;
+                // CRITICAL: EMIT FAILURE EVENT
+                PaymentEvent failedEvent = new PaymentEvent(
+                        traceId,
+                        paymentId,
+                        PaymentEventType.PAYMENT_FAILED,
+                        event.getUserEmail(),
+                        event.getAmount(),
+                        0.0,
+                        LocalDateTime.now()
+                );
 
-        UserPreference preference = userPreferenceRepository
-                .findByUserEmail(event.getUserEmail())
-                .orElse(null);
+                paymentKafkaTemplate.send(PAYMENT_TOPIC, paymentId, failedEvent);
 
-        if (preference != null) {
+                log.warn("❌ Payment failed (fraud blocked) paymentId={}", paymentId);
 
-            roundingStrategy = preference.getRoundingPreference();
+                idempotencyService.markProcessed(paymentId);
+                return;
+            }
 
-            switch (roundingStrategy) {
+            double riskScore = event.getRiskScore();
+            String riskLevel = determineRiskLevel(riskScore);
 
-                case "ROUND_UP":
-                    roundedAmount = Math.ceil(originalAmount);
+            boolean otpRequired = false;
+            PaymentStatus finalStatus;
+
+            switch (riskLevel) {
+                case "HIGH":
+                    finalStatus = PaymentStatus.FAILED;
                     break;
-
-                case "ROUND_DOWN":
-                    roundedAmount = Math.floor(originalAmount);
+                case "MEDIUM":
+                    finalStatus = PaymentStatus.PENDING_OTP;
+                    otpRequired = true;
                     break;
-
-                case "NEAREST":
-                    roundedAmount = Math.round(originalAmount);
-                    break;
-
                 default:
+                    finalStatus = PaymentStatus.APPROVED;
+            }
+
+            double originalAmount = event.getAmount();
+            double roundedAmount;
+            String roundingStrategy;
+
+            UserPreference preference = userPreferenceRepository
+                    .findByUserEmail(event.getUserEmail())
+                    .orElse(null);
+
+            if (preference != null) {
+
+                roundingStrategy = preference.getRoundingPreference();
+
+                switch (roundingStrategy) {
+                    case "ROUND_UP": roundedAmount = Math.ceil(originalAmount); break;
+                    case "ROUND_DOWN": roundedAmount = Math.floor(originalAmount); break;
+                    case "NEAREST": roundedAmount = Math.round(originalAmount); break;
+                    default:
+                        roundedAmount = originalAmount;
+                        roundingStrategy = "NO_ROUND";
+                }
+
+            } else {
+
+                if ("LOW".equals(riskLevel)) {
+                    roundedAmount = Math.ceil(originalAmount);
+                    roundingStrategy = "RISK_ROUND_UP";
+                } else if ("MEDIUM".equals(riskLevel)) {
+                    roundedAmount = Math.round(originalAmount);
+                    roundingStrategy = "RISK_NEAREST";
+                } else {
                     roundedAmount = originalAmount;
-                    roundingStrategy = "NO_ROUND";
+                    roundingStrategy = "RISK_NO_ROUND";
+                }
             }
 
-        } else {
+            // ✅ FIX FLOAT ISSUE
+            double spareAmount = BigDecimal.valueOf(roundedAmount)
+                    .subtract(BigDecimal.valueOf(originalAmount))
+                    .doubleValue();
 
-            if ("LOW".equals(riskLevel)) {
-                roundedAmount = Math.ceil(originalAmount);
-                roundingStrategy = "RISK_ROUND_UP";
+            Payment payment = new Payment();
+            payment.setPaymentId(paymentId);
+            payment.setUserEmail(event.getUserEmail());
+            payment.setOriginalAmount(originalAmount);
+            payment.setRoundedAmount(roundedAmount);
+            payment.setSpareAmount(spareAmount);
+            payment.setRiskScore(riskScore);
+            payment.setRiskLevel(riskLevel);
+            payment.setOtpRequired(otpRequired);
+            payment.setOtpVerified(false);
+            payment.setRoundingStrategy(roundingStrategy);
+            payment.setStatus(finalStatus);
+
+            if (finalStatus == PaymentStatus.PENDING_OTP) {
+
+                String otpSessionId = UUID.randomUUID().toString();
+                long expiryTime = System.currentTimeMillis() + (5 * 60 * 1000);
+
+                payment.setOtpSessionId(otpSessionId);
+                payment.setOtpAttempts(0);
+                payment.setOtpExpiryTime(expiryTime);
+
+                paymentRepository.save(payment);
+
+                kafkaTemplate.send(
+                        OTP_REQUEST_TOPIC,
+                        paymentId,
+                        new OtpRequestEvent(
+                                traceId,
+                                paymentId,
+                                otpSessionId,
+                                event.getUserEmail(),
+                                expiryTime,
+                                5
+                        )
+                );
+
+                return;
             }
-            else if ("MEDIUM".equals(riskLevel)) {
-                roundedAmount = Math.round(originalAmount);
-                roundingStrategy = "RISK_NEAREST";
+
+            paymentRepository.save(payment);
+
+            if (finalStatus == PaymentStatus.APPROVED) {
+                emitPaymentCompleted(payment, paymentId, traceId);
             }
-            else {
-                roundedAmount = originalAmount;
-                roundingStrategy = "RISK_NO_ROUND";
-            }
-        }
 
-        double spareAmount = roundedAmount - originalAmount;
+            idempotencyService.markProcessed(paymentId);
 
-        Payment payment = new Payment();
-
-        payment.setUserEmail(event.getUserEmail());
-        payment.setOriginalAmount(originalAmount);
-        payment.setRoundedAmount(roundedAmount);
-        payment.setSpareAmount(spareAmount);
-        payment.setRiskScore(riskScore);
-        payment.setRiskLevel(riskLevel);
-        payment.setOtpRequired(otpRequired);
-        payment.setOtpVerified(!otpRequired);
-        payment.setRoundingStrategy(roundingStrategy);
-        payment.setStatus(finalStatus);
-
-        Payment saved = paymentRepository.save(payment);
-
-        log.info("💾 Payment stored with status {}", finalStatus);
-
-        if ("OTP_REQUIRED".equals(finalStatus)) {
-
-            kafkaTemplate.send(
-                    OTP_REQUEST_TOPIC,
-                    new OtpRequestEvent(saved.getUserEmail())
-            );
-
-            log.info("📤 OTP request emitted");
-            return;
-        }
-
-        if ("APPROVED".equals(finalStatus)) {
-
-            emitPaymentCompleted(
-                    saved,
-                    event.getPaymentId()   // ✔ Correct pipeline ID
-            );
+        } finally {
+            MDC.clear();
         }
     }
 
-    public void resumeAfterOtp(String userEmail) {
-
-        Payment payment = paymentRepository
-                .findTopByUserEmailOrderByIdDesc(userEmail)
-                .orElseThrow();
-
-        payment.setOtpVerified(true);
-        payment.setStatus("APPROVED");
-
-        paymentRepository.save(payment);
-
-        emitPaymentCompleted(
-                payment,
-                payment.getId()   // used only when OTP resumes
-        );
-    }
-
-    private void emitPaymentCompleted(Payment payment, long paymentId) {
+    private void emitPaymentCompleted(Payment payment, String paymentId, String traceId) {
 
         PaymentEvent event = new PaymentEvent(
+                traceId,
+                paymentId,
                 PaymentEventType.PAYMENT_COMPLETED,
-                String.valueOf(paymentId),
                 payment.getUserEmail(),
                 payment.getOriginalAmount(),
                 payment.getSpareAmount(),
                 LocalDateTime.now()
         );
 
-        paymentKafkaTemplate.send(PAYMENT_TOPIC, event);
+        paymentKafkaTemplate.send(PAYMENT_TOPIC, paymentId, event);
 
-        log.info("📤 PAYMENT_COMPLETED emitted for {}", paymentId);
+        kafkaTemplate.send(
+                INVESTMENT_TRIGGER_TOPIC,
+                paymentId,
+                new InvestmentTriggerEvent(
+                        traceId,
+                        paymentId,
+                        payment.getUserEmail(),
+                        payment.getOriginalAmount(),
+                        payment.getSpareAmount(),
+                        payment.getRoundedAmount()
+                )
+        );
     }
 
     private String determineRiskLevel(double riskScore) {
-
         if (riskScore > 0.8) return "HIGH";
         if (riskScore > 0.4) return "MEDIUM";
-
         return "LOW";
+    }
+
+    public void resumeAfterOtp(String paymentId, String traceId) {
+
+        MDC.put("traceId", traceId);
+
+        try {
+
+            Payment payment = paymentRepository
+                    .findByPaymentId(paymentId)
+                    .orElseThrow(() -> new RuntimeException("Payment not found"));
+
+            if (payment.getStatus() != PaymentStatus.PENDING_OTP) {
+                log.warn("⚠️ Payment not in OTP state paymentId={}", paymentId);
+                return;
+            }
+
+            payment.setOtpVerified(true);
+            payment.setStatus(PaymentStatus.COMPLETED);
+
+            paymentRepository.save(payment);
+
+            log.info("✅ OTP verified → completing payment paymentId={}", paymentId);
+
+            emitPaymentCompleted(payment, paymentId, traceId);
+
+        } finally {
+            MDC.clear();
+        }
     }
 }

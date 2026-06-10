@@ -23,106 +23,98 @@ public class NotificationService {
     private final NotificationDispatcher dispatcher;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    // ==========================================================
-    // 🚨 FRAUD BLOCKED NOTIFICATION
-    // ==========================================================
-    public void dispatchFraudBlocked(String userEmail, double amount) {
+    // ✅ PAYMENT SUCCESS
+    public void dispatchPaymentSuccess(String paymentId, String email, double amount, String traceId) {
 
-        log.warn("⚠ Dispatching Fraud Blocked Notification");
+        String message = "Payment of ₹" + amount + " completed.";
 
-        String message = "Your transaction of ₹" + amount +
-                " was blocked due to risk detection.";
-
-        dispatcher.dispatch(
-                NotificationChannel.EMAIL,
-                userEmail,
-                message
-        );
-
-        Notification n = new Notification();
-        n.setUserEmail(userEmail);
-        n.setMessage(message);
-        n.setChannel(NotificationChannel.EMAIL.name());
-        n.setStatus("SENT");
-        n.setCreatedAt(LocalDateTime.now());
-
-        repo.save(n);
-
-        Map<String, Object> event = new HashMap<>();
-        event.put("userEmail", userEmail);
-        event.put("status", "SENT");
-        event.put("type", "FRAUD_BLOCKED");
-
-        kafkaTemplate.send("notification-topic", event);
-
-        log.info("📤 Notification event sent → notification-topic");
+        process(paymentId, email, message, traceId, "PAYMENT_SUCCESS");
     }
 
-    // ==========================================================
-    // 💰 INVESTMENT SUCCESS NOTIFICATION
-    // ==========================================================
-    public void dispatchInvestmentSuccess(String userEmail, double amount) {
+    // ✅ PAYMENT FAILED (FRAUD BLOCK)
+    public void dispatchPaymentFailed(String paymentId, String email, double amount, String traceId) {
 
-        log.info("🎉 Dispatching Investment Success Notification");
+        String message = "⚠️ Your payment of ₹" + amount + " was blocked.";
 
-        String message = "🎉 Your investment of ₹" + amount + " was successful!";
-
-        dispatcher.dispatch(
-                NotificationChannel.EMAIL,
-                userEmail,
-                message
-        );
-
-        Notification n = new Notification();
-        n.setUserEmail(userEmail);
-        n.setMessage(message);
-        n.setChannel(NotificationChannel.EMAIL.name());
-        n.setStatus("SENT");
-        n.setCreatedAt(LocalDateTime.now());
-
-        repo.save(n);
-
-        Map<String, Object> event = new HashMap<>();
-        event.put("userEmail", userEmail);
-        event.put("status", "SENT");
-        event.put("type", "INVESTMENT_SUCCESS");
-
-        kafkaTemplate.send("notification-topic", event);
-
-        log.info("📤 Notification event sent → notification-topic");
+        process(paymentId, email, message, traceId, "PAYMENT_FAILED");
     }
 
-    // ==========================================================
-    // 💳 PAYMENT SUCCESS NOTIFICATION
-    // ==========================================================
-    public void dispatchPaymentSuccess(String userEmail, double amount) {
+    // ✅ INVESTMENT SUCCESS
+    public void dispatchInvestmentSuccess(String paymentId, String email, double amount, String traceId) {
 
-        log.info("💳 Dispatching Payment Success Notification");
+        String message = "🎉 Investment of ₹" + amount + " successful!";
 
-        String message = "Payment of ₹" + amount + " completed successfully.";
+        process(paymentId, email, message, traceId, "INVESTMENT_SUCCESS");
+    }
 
-        dispatcher.dispatch(
-                NotificationChannel.EMAIL,
-                userEmail,
-                message
-        );
+    // 🔥 COMMON PIPELINE
+    private void process(String paymentId,
+                         String email,
+                         String message,
+                         String traceId,
+                         String type) {
+
+        if (paymentId == null || email == null) {
+            log.warn("Invalid notification event");
+            return;
+        }
+
+        // ✅ IDEMPOTENCY
+        if (repo.findByPaymentIdAndMessage(paymentId, message).isPresent()) {
+            log.warn("Duplicate notification skipped paymentId={}", paymentId);
+            return;
+        }
+
+        String status;
+
+        try {
+            dispatcher.dispatch(NotificationChannel.EMAIL, email, message);
+            status = "SENT";
+        } catch (Exception e) {
+            log.error("Notification failed paymentId={}", paymentId, e);
+            status = "FAILED";
+        }
+
+        saveNotification(paymentId, email, message, traceId, status);
+
+        sendEvent(paymentId, email, type, traceId, status);
+    }
+
+    private void saveNotification(String paymentId,
+                                  String email,
+                                  String message,
+                                  String traceId,
+                                  String status) {
 
         Notification n = new Notification();
-        n.setUserEmail(userEmail);
+
+        n.setPaymentId(paymentId);
+        n.setUserEmail(email);
         n.setMessage(message);
         n.setChannel(NotificationChannel.EMAIL.name());
-        n.setStatus("SENT");
+        n.setStatus(status);
+        n.setTraceId(traceId);
         n.setCreatedAt(LocalDateTime.now());
 
         repo.save(n);
+    }
+
+    private void sendEvent(String paymentId,
+                           String email,
+                           String type,
+                           String traceId,
+                           String status) {
 
         Map<String, Object> event = new HashMap<>();
-        event.put("userEmail", userEmail);
-        event.put("status", "SENT");
-        event.put("type", "PAYMENT_SUCCESS");
 
-        kafkaTemplate.send("notification-topic", event);
+        event.put("traceId", traceId);
+        event.put("paymentId", paymentId);
+        event.put("userEmail", email);
+        event.put("type", type);
+        event.put("status", status);
 
-        log.info("📤 Notification event sent → notification-topic");
+        kafkaTemplate.send("notification-topic", paymentId, event);
+
+        log.info("Notification event sent paymentId={}", paymentId);
     }
 }

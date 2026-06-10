@@ -9,5 +9,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class OtpVerifiedEvent {
 
+    private String traceId;
+    private String paymentId;
+
+    private String otpSessionId;
+
     private String userEmail;
 }

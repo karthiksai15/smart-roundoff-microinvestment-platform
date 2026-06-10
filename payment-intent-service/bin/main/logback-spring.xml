@@ -1,0 +1,42 @@
+<configuration>
+
+    ```
+    <!-- Import Spring property -->
+    <springProperty scope="context"
+                    name="serviceName"
+                    source="spring.application.name"/>
+
+    <!-- Console logging -->
+    <appender name="STDOUT"
+              class="ch.qos.logback.core.ConsoleAppender">
+
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>
+                { "service":"${serviceName}" }
+            </customFields>
+        </encoder>
+
+    </appender>
+
+    <!-- Logstash appender -->
+    <appender name="LOGSTASH"
+              class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+
+        <destination>localhost:5044</destination>
+
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>
+                { "service":"${serviceName}" }
+            </customFields>
+        </encoder>
+
+    </appender>
+
+    <!-- Root logger -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="LOGSTASH"/>
+    </root>
+    ```
+
+</configuration>

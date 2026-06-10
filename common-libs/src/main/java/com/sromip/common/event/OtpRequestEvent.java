@@ -9,5 +9,15 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class OtpRequestEvent {
 
+    private String traceId;
+    private String paymentId;
+
+    private String otpSessionId;
+
     private String userEmail;
+
+
+    private long expiryTime;
+
+    private int maxAttempts;
 }

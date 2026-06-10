@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: API-GATEWAY
+    name: api-gateway
 
   redis:
     host: localhost
@@ -11,52 +11,80 @@ spring:
 
   cloud:
     gateway:
+
+      httpclient:
+        connect-timeout: 5000
+        response-timeout: 10s
+
       discovery:
         locator:
           enabled: true
 
       routes:
+
+        - id: otp-service
+          uri: lb://OTP-SERVICE
+          predicates:
+            - Path=/api/otp/**
+          filters:
+            - RewritePath=/api/otp/(?<segment>.*), /otp/${segment}
+
         - id: auth-service
           uri: lb://AUTH-SERVICE
           predicates:
             - Path=/auth/**
+
+        - id: payment-intent-service
+          uri: lb://PAYMENT-INTENT-SERVICE
+          predicates:
+            - Path=/api/payment-intent/**
           filters:
+
+            # TEMPORARILY DISABLED FOR DEBUGGING
+            #
+            # - name: Retry
+            #   args:
+            #     retries: 3
+            #     methods: POST
+
+            - name: CircuitBreaker
+              args:
+                name: paymentIntentCB
+                fallbackUri: forward:/fallback/payment-intent
+                statusCodes:
+                  - 500
+
             - name: RequestRateLimiter
               args:
-                redis-rate-limiter.replenishRate: 5
-                redis-rate-limiter.burstCapacity: 5
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
                 key-resolver: "#{@userKeyResolver}"
 
-        - id: payment-service
-          uri: lb://PAYMENT-SERVICE
-          predicates:
-            - Path=/payment/**
+# RESILIENCE4J
+resilience4j:
+  circuitbreaker:
+    instances:
+      paymentIntentCB:
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 3
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
 
-        - id: investment-service
-          uri: lb://INVESTMENT-SERVICE
-          predicates:
-            - Path=/investment/**
+  timelimiter:
+    instances:
+      paymentIntentCB:
+        timeoutDuration: 10s
 
-        - id: notification-service
-          uri: lb://NOTIFICATION-SERVICE
-          predicates:
-            - Path=/notify/**
-
-        # 🔥 ADD THIS BLOCK
-        - id: fraud-service
-          uri: lb://FRAUD-SERVICE
-          predicates:
-            - Path=/fraud/**
-
+# EUREKA
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka
-  instance:
-    prefer-ip-address: true
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
+# JWT
+jwt:
+  secret: "22rCaGMiLhaXdVx8hlsCSVDCXzeY2jgTovMyR+Yz1Z66U5AId/RvdNSb1lIvzZu4BbylYOW0oItsKYf5lRMCMA=="
+
+# API KEY
+gateway:
+  api-key: sromip-partner-key

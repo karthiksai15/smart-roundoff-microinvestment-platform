@@ -12,6 +12,9 @@ import java.util.UUID;
 @NoArgsConstructor
 public class PaymentIntentEvent {
 
+    private String traceId;
+    private String paymentId;
+
     private UUID intentId;
     private String userEmail;
     private double requestedAmount;

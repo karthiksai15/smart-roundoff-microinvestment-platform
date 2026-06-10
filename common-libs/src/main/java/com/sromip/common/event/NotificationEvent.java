@@ -4,9 +4,11 @@ import java.time.LocalDateTime;
 
 public class NotificationEvent {
 
+    private String traceId; // ✅ ADDED
+
     private NotificationEventType eventType;
 
-    private Long paymentId;     // ⭐ ADD THIS
+    private String paymentId;
 
     private String userEmail;
     private String userId;
@@ -21,15 +23,17 @@ public class NotificationEvent {
     }
 
     public NotificationEvent(
+            String traceId,
             NotificationEventType eventType,
-            Long paymentId,        // ⭐ ADD THIS
+            String paymentId,
             String userEmail,
             String userId,
             String message,
             Double amount
     ) {
+        this.traceId = traceId;
         this.eventType = eventType;
-        this.paymentId = paymentId;   // ⭐ ADD THIS
+        this.paymentId = paymentId;
         this.userEmail = userEmail;
         this.userId = userId;
         this.message = message;
@@ -37,57 +41,5 @@ public class NotificationEvent {
         this.createdAt = LocalDateTime.now();
     }
 
-    // Getters & Setters
-
-    public NotificationEventType getEventType() {
-        return eventType;
-    }
-
-    public void setEventType(NotificationEventType eventType) {
-        this.eventType = eventType;
-    }
-
-    public Long getPaymentId() {        // ⭐ ADD
-        return paymentId;
-    }
-
-    public void setPaymentId(Long paymentId) {   // ⭐ ADD
-        this.paymentId = paymentId;
-    }
-
-    public String getUserEmail() {
-        return userEmail;
-    }
-
-    public void setUserEmail(String userEmail) {
-        this.userEmail = userEmail;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public Double getAmount() {
-        return amount;
-    }
-
-    public void setAmount(Double amount) {
-        this.amount = amount;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
+    // getters & setters
 }

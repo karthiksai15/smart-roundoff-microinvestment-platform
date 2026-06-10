@@ -7,6 +7,7 @@ import com.sromip.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.slf4j.MDC;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -21,17 +22,37 @@ public class PaymentCompletedListener {
             topics = "payment-topic",
             groupId = "notification-service-group"
     )
-    public void handlePaymentCompleted(PaymentEvent event) {
+    public void handlePayment(PaymentEvent event) {
 
-        if (event.getEventType() != PaymentEventType.PAYMENT_COMPLETED) {
-            return;
+        MDC.put("traceId", event.getTraceId());
+
+        try {
+
+            String paymentId = event.getPaymentId();
+
+            if (event.getEventType() == PaymentEventType.PAYMENT_COMPLETED) {
+
+                notificationService.dispatchPaymentSuccess(
+                        paymentId,
+                        event.getUserEmail(),
+                        event.getAmount(),
+                        event.getTraceId()
+                );
+            }
+
+            // ✅ NOW THIS WILL WORK
+            if (event.getEventType() == PaymentEventType.PAYMENT_FAILED) {
+
+                notificationService.dispatchPaymentFailed(
+                        paymentId,
+                        event.getUserEmail(),
+                        event.getAmount(),
+                        event.getTraceId()
+                );
+            }
+
+        } finally {
+            MDC.clear();
         }
-
-        log.info("💳 PAYMENT COMPLETED EVENT RECEIVED");
-
-        notificationService.dispatchPaymentSuccess(
-                event.getUserEmail(),
-                event.getAmount()
-        );
     }
 }

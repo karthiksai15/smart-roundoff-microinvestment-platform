@@ -12,6 +12,9 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "payment_id", unique = true, nullable = false)
+    private String paymentId;
+
     private String userEmail;
 
     private double originalAmount;
@@ -24,7 +27,13 @@ public class Payment {
     private boolean otpRequired;
     private boolean otpVerified;
 
+    private String otpSessionId;
+    private int otpAttempts;
+    private long otpExpiryTime;
+
     private String roundingStrategy;
 
-    private String status;
+    // ✅ FIX: ENUM STATUS
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus status;
 }

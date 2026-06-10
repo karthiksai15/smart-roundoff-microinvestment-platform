@@ -11,11 +11,14 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class FraudDecisionEvent {
 
-    private long paymentId;
+    private String traceId;
+    private String paymentId;
+
     private String userEmail;
     private double amount;
     private double riskScore;
-    private String status; // APPROVED or BLOCKED
+
+    private String status;
+
     private LocalDateTime decidedAt;
 }
-

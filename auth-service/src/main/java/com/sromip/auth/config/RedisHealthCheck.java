@@ -7,9 +7,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class RedisHealthCheck {
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, String> redisTemplate; // ✅ FIX
 
-    public RedisHealthCheck(RedisTemplate<String, Object> redisTemplate) {
+    public RedisHealthCheck(RedisTemplate<String, String> redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
 

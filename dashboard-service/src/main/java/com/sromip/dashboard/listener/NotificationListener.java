@@ -1,5 +1,6 @@
 package com.sromip.dashboard.listener;
 
+
 import com.sromip.dashboard.service.DashboardUpdateService;
 
 import lombok.RequiredArgsConstructor;
@@ -17,18 +18,19 @@ public class NotificationListener {
 
     private final DashboardUpdateService service;
 
-    @KafkaListener(topics = "notification-topic", groupId = "dashboard-group")
+    @KafkaListener(
+            topics = "notification-topic",
+            groupId = "dashboard-group",
+            containerFactory = "kafkaListenerContainerFactory"
+    )
     public void consume(Map<String, Object> event) {
 
         try {
 
+            String paymentId = event.get("paymentId").toString();
             String email = event.get("userEmail").toString();
 
-            log.info("📩 Notification received for {}", email);
-
-            // Since notification event has no paymentId
-            // we update latest transaction by email
-            service.updateNotification(null, email);
+            service.updateNotification(paymentId, email);
 
         } catch (Exception e) {
 
