@@ -443,4 +443,8 @@ Deployment         : Docker
 
 ## Conclusion
 
+<<<<<<< HEAD
 SROMIP demonstrates a production-style fintech workflow built using an event-driven microservices architecture. The platform integrates authentication, fraud evaluation, OTP verification, payment orchestration, automatic round-off investments, notifications, and analytics through asynchronous Kafka-based communication while maintaining scalability, reliability, and service independence.
+=======
+SROMIP demonstrates a production-style fintech workflow built using an event-driven microservices architecture. The platform integrates authentication, fraud evaluation, OTP verification, payment orchestration, automatic round-off investments, notifications, and analytics through asynchronous Kafka-based communication while maintaining scalability, reliability, and service independence.
+>>>>>>> a417b21 (modified dockor compose)
